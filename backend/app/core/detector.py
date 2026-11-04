@@ -114,6 +114,7 @@ class PedestrianTracker:
         self.device = device or None
         args = IterableSimpleNamespace(**tracker_args(settings, effective_fps))
         self.tracker = BOTSORT(args) if args.tracker_type == "botsort" else BYTETracker(args)
+        self.is_botsort = args.tracker_type == "botsort"
         self.gmc = ExternalGMC()
         self.tracker.gmc = self.gmc
         self.tiled = settings.detection_mode == "tiled"
@@ -150,7 +151,16 @@ class PedestrianTracker:
         """Update the tracker with detections from :meth:`detect` and an optional camera warp."""
         from ultralytics.engine.results import Boxes
 
-        self.gmc.warp = np.eye(2, 3, dtype=np.float32) if warp is None else np.asarray(warp, np.float32)
+        w = np.eye(2, 3, dtype=np.float32)
+        if warp is not None:
+            if self.is_botsort:
+                w = np.asarray(warp, np.float32)
+            else:
+                # ByteTrack's Kalman state is (x, y, aspect, height); ultralytics' multi_gmc assumes
+                # (x, y, w, h) and would corrupt the aspect ratio with any rotation term, so only the
+                # translation is applied (pans/shake are dominated by translation anyway).
+                w[:, 2] = np.asarray(warp, np.float32)[:, 2]
+        self.gmc.warp = w
         self.last_raw_count = int((det[:, 4] >= self.s.confidence_threshold).sum()) if len(det) else 0
         boxes = Boxes(torch.from_numpy(np.asarray(det, np.float32)).reshape(-1, 6), frame.shape[:2]).cpu().numpy()
         tracks = self.tracker.update(boxes, frame)
