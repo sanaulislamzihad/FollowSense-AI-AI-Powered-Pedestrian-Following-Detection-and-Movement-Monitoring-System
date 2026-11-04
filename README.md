@@ -131,6 +131,21 @@ opposite directions, short following, standing people, a 40-person crowd); crowd
 congestion clustering, overcrowding alerts and camera-pan compensation; the API test uploads a video and
 exercises every endpoint including the PDF report.
 
+## Results on the demo footage
+
+Two handheld iPhone clips of a busy campus plaza (portrait, 120 fps) were used for testing; real
+deployments will use fixed CCTV angles, which are easier (no camera motion).
+
+| Clip | Length | Camera motion | Peak / avg people | Following | Groups | Crowd alerts |
+|---|---|---|---|---|---|---|
+| IMG_7706 (high view, dense crowd) | 35.7 s | 420 px | 41 / 31 | 1 (two people walking single-file, 1.25 bh apart, 2.6 s lag, 78 %) | 6 | 1 congestion |
+| IMG_7595 (low view, strong pans, 4K HEVC) | 31.5 s | ≈3500 px | 30 / 21 | 0 | 1 | 3 congestion |
+
+Camera motion compensation matters: on the first 12 s of IMG_7595 *without* it, panning made standing
+people look like they walked together and produced 11 false "potential following" pairs; with it, 0.
+Feeding the same motion estimate into the tracker's Kalman prediction raised the average number of
+continuously tracked people from 19.4 to 24.3 and reduced ID fragmentation.
+
 ## Configuration notes for real cameras
 
 - **Crowd levels** (`crowd_warning_count`, `crowd_critical_count`) depend on how much of the scene a
