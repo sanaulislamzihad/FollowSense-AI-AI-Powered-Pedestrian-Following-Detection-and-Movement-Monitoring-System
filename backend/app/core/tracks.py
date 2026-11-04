@@ -104,14 +104,20 @@ class TrackStore:
         self.stale_after_sec = stale_after_sec
         self.now = 0.0
 
-    def update(self, t: float, frame: int, detections: list[tuple[int, tuple, float]]) -> None:
-        """``detections`` = [(track_id, (x1, y1, x2, y2), conf), ...]."""
+    def update(self, t: float, frame: int, detections: list[tuple[int, tuple, float]],
+               points: list[tuple[float, float]] | None = None) -> None:
+        """``detections`` = [(track_id, (x1, y1, x2, y2), conf), ...].
+
+        ``points`` optionally gives the foot point of every detection in stabilised
+        (camera-motion compensated) coordinates; otherwise the box bottom-centre is used.
+        """
         self.now = t
-        for tid, (x1, y1, x2, y2), conf in detections:
+        for i, (tid, (x1, y1, x2, y2), conf) in enumerate(detections):
             track = self.tracks.get(tid)
             if track is None:
                 track = self.tracks[tid] = Track(track_id=tid)
-            track.add(Observation(t=t, frame=frame, x=(x1 + x2) / 2.0, y=float(y2),
+            fx, fy = points[i] if points is not None else ((x1 + x2) / 2.0, float(y2))
+            track.add(Observation(t=t, frame=frame, x=float(fx), y=float(fy),
                                   h=float(y2 - y1), box=(x1, y1, x2, y2), conf=conf))
 
     def active(self, min_hits: int = 1, max_age: float | None = None) -> list[Track]:

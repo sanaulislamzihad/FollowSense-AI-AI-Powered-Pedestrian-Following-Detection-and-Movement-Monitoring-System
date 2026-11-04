@@ -52,12 +52,16 @@ class DetectionSettings:
     """
 
     # --- detection / tracking ---
-    confidence_threshold: float = 0.35
+    confidence_threshold: float = 0.25
     iou_threshold: float = 0.5
-    image_size: int = 640
+    image_size: int = 1280  # larger input finds small / distant people in crowds
+    detection_mode: str = "standard"  # standard | tiled (extra full-res tiles for dense crowds)
+    tile_size: int = 640
     tracker: str = "bytetrack"  # bytetrack | botsort
-    frame_stride: int = 1  # process every Nth frame (speed up on CPU)
+    target_fps: float = 15.0  # frames analysed per second of video (0 = every frame)
+    occlusion_buffer_sec: float = 3.0  # keep lost tracks alive this long (occlusions)
     min_track_hits: int = 3  # ignore tracks shorter than this many detections
+    camera_motion_compensation: bool = True  # stabilise coordinates for moving / shaky cameras
 
     # --- movement analysis ---
     velocity_window_sec: float = 0.6
@@ -83,6 +87,13 @@ class DetectionSettings:
     group_max_distance: float = 1.6
     min_group_duration_sec: float = 3.0
 
+    # --- crowd management ---
+    crowd_warning_count: int = 25  # people in view -> "elevated" crowd level
+    crowd_critical_count: int = 45  # people in view -> "critical" level / overcrowding alert
+    congestion_distance: float = 0.9  # neighbours closer than this (body heights) form a cluster
+    congestion_min_people: int = 6  # cluster size considered a congestion zone
+    crowd_alert_min_duration_sec: float = 3.0
+
     # --- heatmap ---
     heatmap_cols: int = 64
 
@@ -97,7 +108,10 @@ class DetectionSettings:
                 continue
             default = getattr(defaults, key)
             try:
-                clean[key] = type(default)(value)
+                if isinstance(default, bool):
+                    clean[key] = value if isinstance(value, bool) else str(value).lower() in ("1", "true", "yes", "on")
+                else:
+                    clean[key] = type(default)(value)
             except (TypeError, ValueError):
                 continue
         return cls(**clean)
