@@ -20,7 +20,7 @@ export default function Overview() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <StatCard icon={Users} label="Pedestrians detected" value={d.total_pedestrians} hint={`${d.jobs_completed ?? 0} analyses completed`} />
-        <StatCard icon={MonitorPlay} tone="sky" label="Active tracking IDs" value={d.active_tracks} hint={`${d.live_people ?? 0} people in view now · ${d.jobs_running ?? 0} running`} />
+        <StatCard icon={MonitorPlay} tone="sky" label="Active tracking IDs" value={d.live_people} hint={`${d.active_tracks ?? 0} IDs assigned so far · ${d.jobs_running ?? 0} running`} />
         <StatCard icon={Footprints} tone="rose" label="Potential following" value={d.following_events} hint={`${d.following_unreviewed ?? 0} awaiting review`} />
         <StatCard icon={UsersRound} tone="green" label="Group / crowd events" value={`${d.group_events ?? 0} / ${d.crowd_alerts ?? 0}`} hint={`Peak crowd ${d.peak_crowd ?? 0} people`} />
       </div>

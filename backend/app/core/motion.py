@@ -26,8 +26,14 @@ class CameraMotionCompensator:
         self.T_inv = np.eye(3)
         self.last_shift = 0.0  # magnitude of last frame-to-frame motion (px)
         self.total_shift = 0.0
+        self.step = np.eye(3)  # last frame-to-frame motion: current frame -> previous frame
+
+    def tracker_warp(self) -> np.ndarray:
+        """2x3 warp mapping previous-frame coordinates into the current frame (for Kalman states)."""
+        return np.linalg.inv(self.step)[:2]
 
     def update(self, frame: np.ndarray, boxes: list[tuple[float, float, float, float]]) -> np.ndarray:
+        self.step = np.eye(3)
         if not self.enabled:
             return self.T
         h, w = frame.shape[:2]
@@ -67,6 +73,7 @@ class CameraMotionCompensator:
         if self.last_shift < 0.3 and abs(M[0, 0] - 1) < 1e-3 and abs(M[0, 1]) < 1e-3:
             return self.T  # dead band: static camera, avoid drift
         self.total_shift += self.last_shift
+        self.step = M
         self.T = self.T @ M
         self.T_inv = np.linalg.inv(self.T)
         return self.T

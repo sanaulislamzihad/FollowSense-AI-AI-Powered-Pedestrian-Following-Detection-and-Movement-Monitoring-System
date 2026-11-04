@@ -210,9 +210,11 @@ class VideoAnalyzer:
                     if self.output_path:
                         writer = VideoWriter(self.output_path, W, H, eff_fps)
 
-                dets = tracker(frame)
+                raw = tracker.detect(frame)
+                # camera motion first (people masked out), then tracking with that warp
+                cmc.update(frame, [tuple(b[:4]) for b in raw if b[4] >= 0.2])
+                dets = tracker.track(frame, raw, cmc.tracker_warp())
                 boxes = [d[1] for d in dets]
-                cmc.update(frame, boxes)
                 feet = np.array([((b[0] + b[2]) / 2, b[3]) for b in boxes]).reshape(-1, 2)
                 ref = cmc.to_reference(feet)
                 store.update(t, frame_idx, dets, [tuple(p) for p in ref])

@@ -24,9 +24,10 @@ def heatmap_image(job, alpha: float = 0.55) -> np.ndarray:
     values = np.asarray(hm.get("values") or [[0]], np.float32)
     h, w = base.shape[:2]
     grid = cv2.resize(values, (w, h), interpolation=cv2.INTER_CUBIC)
-    grid = cv2.GaussianBlur(grid, (0, 0), sigmaX=max(w, h) / 120)
-    if grid.max() > 0:
-        grid = grid / grid.max()
+    grid = cv2.GaussianBlur(grid, (0, 0), sigmaX=max(w, h) / 160)
+    nz = grid[grid > 1e-4]
+    if nz.size:  # 98th percentile so one hot spot does not wash out the rest
+        grid = grid / max(float(np.percentile(nz, 98)), 1e-6)
     grid = np.clip(grid, 0, 1)
     colored = cv2.applyColorMap((grid * 255).astype(np.uint8), cv2.COLORMAP_JET)
     mask = (grid > 0.05)[..., None]

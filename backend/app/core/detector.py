@@ -35,7 +35,7 @@ def tracker_args(settings: DetectionSettings, effective_fps: float) -> dict:
     if tracker == "botsort":
         # Our own compensator stabilises analysis coordinates; BoT-SORT's GMC additionally
         # helps association when the camera moves.
-        args.update({"gmc_method": "sparseOptFlow", "proximity_thresh": 0.5,
+        args.update({"gmc_method": "none", "proximity_thresh": 0.5,
                      "appearance_thresh": 0.8, "with_reid": False, "model": "auto"})
     return args
 
@@ -78,6 +78,27 @@ def merge_boxes(boxes: np.ndarray, iou: float) -> np.ndarray:
     return b[keep_mask]
 
 
+class ExternalGMC:
+    """Feeds our own camera-motion estimate into the ultralytics trackers.
+
+    ByteTrack/BoT-SORT call ``gmc.apply`` to warp predicted track states into the current
+    frame. Supplying the warp computed by :class:`CameraMotionCompensator` gives ByteTrack
+    camera-motion awareness too (fewer ID switches during pans) and saves BoT-SORT from
+    estimating the same motion a second time.
+    """
+
+    method = "external"
+
+    def __init__(self) -> None:
+        self.warp = np.eye(2, 3, dtype=np.float32)
+
+    def apply(self, raw_frame=None, detections=None) -> np.ndarray:
+        return self.warp
+
+    def reset_params(self) -> None:
+        self.warp = np.eye(2, 3, dtype=np.float32)
+
+
 class PedestrianTracker:
     """One instance per video/stream (holds the tracker state)."""
 
@@ -93,6 +114,8 @@ class PedestrianTracker:
         self.device = device or None
         args = IterableSimpleNamespace(**tracker_args(settings, effective_fps))
         self.tracker = BOTSORT(args) if args.tracker_type == "botsort" else BYTETracker(args)
+        self.gmc = ExternalGMC()
+        self.tracker.gmc = self.gmc
         self.tiled = settings.detection_mode == "tiled"
         self.last_raw_count = 0
 
@@ -122,10 +145,12 @@ class PedestrianTracker:
         boxes = boxes[(boxes[:, 3] - boxes[:, 1]) >= 12] if len(boxes) else boxes
         return merge_boxes(boxes, self.s.iou_threshold) if self.tiled else boxes
 
-    def __call__(self, frame: np.ndarray) -> list[tuple[int, tuple[float, float, float, float], float]]:
+    def track(self, frame: np.ndarray, det: np.ndarray, warp: np.ndarray | None = None
+              ) -> list[tuple[int, tuple[float, float, float, float], float]]:
+        """Update the tracker with detections from :meth:`detect` and an optional camera warp."""
         from ultralytics.engine.results import Boxes
 
-        det = self.detect(frame)
+        self.gmc.warp = np.eye(2, 3, dtype=np.float32) if warp is None else np.asarray(warp, np.float32)
         self.last_raw_count = int((det[:, 4] >= self.s.confidence_threshold).sum()) if len(det) else 0
         boxes = Boxes(torch.from_numpy(np.asarray(det, np.float32)).reshape(-1, 6), frame.shape[:2]).cpu().numpy()
         tracks = self.tracker.update(boxes, frame)

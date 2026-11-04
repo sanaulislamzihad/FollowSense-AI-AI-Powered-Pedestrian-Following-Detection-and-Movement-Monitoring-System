@@ -58,6 +58,8 @@ def test_camera_motion_compensation_recovers_pan():
     # a static ground point seen at x=400 in the last frame was at x=400+40 in frame 0
     ref = cmc.to_reference([(400, 300)])[0]
     assert abs(ref[0] - 440) < 2.5 and abs(ref[1] - 300) < 2.5
+    # tracker warp moves predicted boxes with the image content (8 px to the left)
+    assert abs(cmc.tracker_warp()[0, 2] + 8) < 1.0
 
 
 def test_static_camera_stays_identity():

@@ -34,7 +34,11 @@ export default function SceneCanvas({ jobId, width, height, heatmap, tracks, hig
       ctx.globalAlpha = 1
     }
     if (showHeatmap && heatmap?.values) {
-      const { rows, cols, values } = heatmap
+      const { rows, cols } = heatmap
+      // normalise by the 98th percentile so a single hot spot does not wash out everything else
+      const flat = heatmap.values.flat().filter((v) => v > 0).sort((a, b) => a - b)
+      const ref = flat.length ? flat[Math.floor(flat.length * 0.98)] || flat[flat.length - 1] : 1
+      const values = heatmap.values.map((row) => row.map((v) => Math.min(1, v / ref)))
       const off = document.createElement('canvas')
       off.width = cols
       off.height = rows
@@ -42,18 +46,18 @@ export default function SceneCanvas({ jobId, width, height, heatmap, tracks, hig
       const imgData = octx.createImageData(cols, rows)
       for (let r = 0; r < rows; r++) {
         for (let k = 0; k < cols; k++) {
-          const v = Math.min(1, Math.sqrt(values[r][k]))
+          const v = Math.sqrt(values[r][k])
           const i = (r * cols + k) * 4
           // blue -> cyan -> yellow -> red ramp
           const hue = 230 - 230 * v
           const [R, G, B] = hslToRgb(hue / 360, 0.95, 0.5)
           imgData.data[i] = R; imgData.data[i + 1] = G; imgData.data[i + 2] = B
-          imgData.data[i + 3] = v < 0.04 ? 0 : Math.round(60 + 160 * v)
+          imgData.data[i + 3] = v < 0.08 ? 0 : Math.round(90 + 150 * v)
         }
       }
       octx.putImageData(imgData, 0, 0)
       ctx.save()
-      ctx.filter = `blur(${Math.max(width, height) / 90}px)`
+      ctx.filter = `blur(${Math.max(width, height) / 160}px)`
       ctx.imageSmoothingEnabled = true
       ctx.drawImage(off, 0, 0, width, height)
       ctx.restore()

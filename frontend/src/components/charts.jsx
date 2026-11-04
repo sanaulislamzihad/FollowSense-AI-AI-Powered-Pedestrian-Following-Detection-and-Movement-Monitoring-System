@@ -13,9 +13,11 @@ ChartJS.defaults.color = '#64748b'
 const grid = { color: '#eef2f7' }
 
 export function RelationshipDoughnut({ data }) {
-  const keys = Object.keys(REL_LABELS).filter((k) => (data?.[k] || 0) > 0)
+  // "insufficient evidence" (pairs seen too briefly / not moving) would dwarf everything else
+  const keys = Object.keys(REL_LABELS).filter((k) => k !== 'insufficient_evidence' && (data?.[k] || 0) > 0)
   if (!keys.length) return <div className="text-sm text-slate-500 py-10 text-center">No pair relationships yet</div>
   return (
+    <div>
     <div className="h-64">
       <Doughnut
         data={{
@@ -24,6 +26,10 @@ export function RelationshipDoughnut({ data }) {
         }}
         options={{ maintainAspectRatio: false, cutout: '62%', plugins: { legend: { position: 'right', labels: { boxWidth: 12 } } } }}
       />
+    </div>
+    {data?.insufficient_evidence > 0 && (
+      <p className="text-xs text-slate-500 mt-2">+ {data.insufficient_evidence} pairs with insufficient evidence (seen together too briefly or standing still), not shown.</p>
+    )}
     </div>
   )
 }
