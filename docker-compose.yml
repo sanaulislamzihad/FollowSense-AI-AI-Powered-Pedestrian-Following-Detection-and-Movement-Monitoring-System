@@ -1,0 +1,31 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: followsense
+      POSTGRES_PASSWORD: followsense
+      POSTGRES_DB: followsense
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U followsense"]
+      interval: 5s
+      retries: 10
+
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      FS_DATABASE_URL: postgresql+psycopg2://followsense:followsense@db:5432/followsense
+      FS_MAX_PARALLEL_JOBS: "2"
+      # FS_DEVICE: "0"   # GPU index when running with the NVIDIA runtime
+    ports:
+      - "8000:8000"
+    volumes:
+      - appdata:/data
+
+volumes:
+  pgdata:
+  appdata:
