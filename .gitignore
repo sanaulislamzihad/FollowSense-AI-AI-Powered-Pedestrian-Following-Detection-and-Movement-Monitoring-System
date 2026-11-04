@@ -19,3 +19,10 @@ frontend/dist/
 .vscode/
 .idea/
 *.log
+
+# Videos (test footage is large)
+*.mov
+*.MOV
+*.mp4
+*.avi
+*.mkv
